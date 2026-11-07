@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simple Business Stock Control</title>
+  <style>
+    :root{
+      --bg: #0f172a;       /* slate-900 */
+      --card: #111827;     /* gray-900 */
+      --muted: #1f2937;    /* gray-800 */
+      --text: #e5e7eb;     /* gray-200 */
+      --sub: #9ca3af;      /* gray-400 */
+      --accent: #22d3ee;   /* cyan-400 */
+      --accent-2: #34d399; /* emerald-400 */
+      --warn: #f59e0b;     /* amber-500 */
+      --danger: #ef4444;   /* red-500 */
+      --ok: #10b981;       /* green-500 */
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+    *{ box-sizing: border-box }
+    html, body{ height: 100% }
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(120deg, #0b1220 0%, #0f172a 100%);
+      color: var(--text);
+    }
+    .container{ max-width: 1100px; margin: 32px auto; padding: 0 16px }
+    header{ display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-bottom: 16px }
+    h1{ font-size: clamp(22px, 3vw, 32px); margin:0; letter-spacing:.2px }
+    .badge{ font-size:12px; color:#0b1220; background: var(--accent); padding:6px 10px; border-radius: 999px; font-weight: 700 }
+
+    .grid{ display:grid; grid-template-columns: 1fr; gap:16px }
+    @media (min-width: 980px){ .grid{ grid-template-columns: 380px 1fr } }
+
+    .card{ background: linear-gradient(180deg, var(--card), var(--muted)); border:1px solid rgba(255,255,255,.05); border-radius: var(--radius); box-shadow: var(--shadow); overflow:hidden }
+    .card h2{ margin:0; padding:16px 18px; font-size: 18px; border-bottom: 1px solid rgba(255,255,255,.06); background: rgba(255,255,255,.03) }
+    .card .body{ padding:16px 18px }
+
+    label{ display:block; font-size: 13px; color: var(--sub); margin-bottom:6px }
+    input, select{ width:100%; padding:12px 12px; border-radius:12px; background:#0b1220; color:var(--text); border:1px solid rgba(255,255,255,.1); outline:none }
+    input:focus, select:focus{ border-color: var(--accent) }
+    .row{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
+
+    .actions{ display:flex; gap:10px; flex-wrap: wrap; margin-top: 10px }
+    button{ cursor:pointer; border:none; border-radius: 12px; padding:10px 14px; font-weight:700; box-shadow: var(--shadow); transition: transform .06s ease, filter .2s ease; }
+    button:hover{ transform: translateY(-1px) }
+    .btn-primary{ background: linear-gradient(135deg, var(--accent), #60a5fa); color:#041018 }
+    .btn-muted{ background: #0b1220; color: var(--text); border:1px solid rgba(255,255,255,.1) }
+    .btn-danger{ background: linear-gradient(135deg, var(--danger), #fb7185); color: #1f0b0b }
+    .btn-ok{ background: linear-gradient(135deg, var(--ok), #67e8f9); color: #00110f }
+
+    .toolbar{ display:flex; flex-wrap: wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:10px }
+    .toolbar .left, .toolbar .right{ display:flex; gap:10px; align-items:center; flex-wrap: wrap }
+
+    .pill{ padding:9px 12px; border-radius:999px; border:1px solid rgba(255,255,255,.1); background:#0b1220; }
+    .pill input{ background:transparent; border:none; padding:0; outline:none }
+
+    table{ width:100%; border-collapse: collapse; overflow: hidden; border-radius: 14px; }
+    thead{ background: rgba(255,255,255,.04) }
+    th, td{ text-align:left; padding: 12px 10px; border-bottom:1px solid rgba(255,255,255,.06) }
+    th{ font-size: 12px; color: var(--sub); user-select:none; cursor:pointer }
+    tbody tr:hover{ background: rgba(255,255,255,.03) }
+
+    .tag{ font-size:11px; padding:4px 8px; border-radius:999px; background: rgba(255,255,255,.06); color: var(--sub) }
+    .qty-badge{ display:inline-block; min-width:40px; text-align:center; padding:4px 8px; border-radius:10px; font-weight: 800; }
+    .low{ background: rgba(245, 158, 11, .15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, .35) }
+    .ok{ background: rgba(16, 185, 129, .15); color:#6ee7b7; border:1px solid rgba(16, 185, 129,.35) }
+
+    tfoot td{ font-weight: 800 }
+
+    .empty{ color: var(--sub); text-align:center; padding: 18px }
+    .help{ color: var(--sub); font-size:12px; margin-top:6px }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Simple Business Stock Control</h1>
+      <span class="badge">LocalStorage • Offline</span>
+    </header>
+
+    <div class="grid">
+      <!-- FORM CARD -->
+      <section class="card" aria-label="Item form">
+        <h2 id="formTitle">Add Item</h2>
+        <div class="body">
+          <form id="itemForm">
+            <input type="hidden" id="itemId" />
+
+            <label for="name">Item name</label>
+            <input id="name" required placeholder="e.g., Pen Blue" />
+
+            <div class="row">
+              <div>
+                <label for="sku">SKU / Code</label>
+                <input id="sku" placeholder="e.g., PEN-BLU-01" />
+              </div>
+              <div>
+                <label for="category">Category</label>
+                <input id="category" placeholder="e.g., Stationery" />
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label for="qty">Quantity</label>
+                <input id="qty" type="number" min="0" step="1" value="0" required />
+              </div>
+              <div>
+                <label for="price">Unit Price</label>
+                <input id="price" type="number" min="0" step="0.01" value="0" required />
+              </div>
+            </div>
+
+            <div class="row">
+              <div>
+                <label for="min">Low Stock Threshold</label>
+                <input id="min" type="number" min="0" step="1" value="5" />
+              </div>
+              <div>
+                <label for="currency">Currency (display)</label>
+                <input id="currency" placeholder="e.g., KES" />
+              </div>
+            </div>
+
+            <div class="actions">
+              <button class="btn-primary" type="submit" id="saveBtn">Save Item</button>
+              <button class="btn-muted" type="button" id="resetBtn">Reset</button>
+              <button class="btn-danger" type="button" id="clearAllBtn" title="Delete ALL items">Clear All</button>
+            </div>
+            <p class="help">Tip: Click an item in the table to edit. Use Stock In/Out for quick adjustments.</p>
+          </form>
+        </div>
+      </section>
+
+      <!-- TABLE CARD -->
+      <section class="card" aria-label="Inventory table">
+        <h2>Inventory</h2>
+        <div class="body">
+          <div class="toolbar">
+            <div class="left">
+              <div class="pill"><input id="search" placeholder="Search name, sku, category" /></div>
+              <select id="filterCat" title="Filter by category">
+                <option value="">All categories</option>
+              </select>
+            </div>
+            <div class="right">
+              <button class="btn-ok" id="exportCsvBtn">Export CSV</button>
+              <label class="btn-muted" style="display:inline-block; padding:10px 14px; cursor:pointer">
+                Import CSV
+                <input type="file" id="importCsvInput" accept=".csv" style="display:none" />
+              </label>
+            </div>
+          </div>
+
+          <div style="overflow:auto">
+            <table id="table" aria-describedby="inventory table">
+              <thead>
+                <tr>
+                  <th data-key="name">Item</th>
+                  <th data-key="sku">SKU</th>
+                  <th data-key="category">Category</th>
+                  <th data-key="qty" style="min-width:90px">Qty</th>
+                  <th data-key="price">Unit Price</th>
+                  <th>Total Value</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody">
+                <tr><td colspan="7" class="empty">No items yet. Add your first item on the left.</td></tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colspan="3">Totals</td>
+                  <td id="totalQty">0</td>
+                  <td></td>
+                  <td id="totalValue">0</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // ====== Utilities ======
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    const STORAGE_KEY = 'simple_stock_items_v1';
+    const CURRENCY_KEY = 'simple_stock_currency_v1';
+
+    /** @type {Array<{id:string,name:string,sku:string,category:string,qty:number,price:number,min:number}>} */
+    let items = [];
+    let currency = localStorage.getItem(CURRENCY_KEY) || 'KES';
+
+    function uid(){ return Math.random().toString(36).slice(2,9) }
+
+    function load(){
+      try{ items = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') }catch{ items = [] }
+      $('#currency').value = currency;
+      render();
+    }
+    function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); }
+
+    function money(n){
+      const val = Number(n || 0);
+      return `${currency} ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function setCurrencyFromInput(){
+      currency = ($('#currency').value || 'KES').trim() || 'KES';
+      localStorage.setItem(CURRENCY_KEY, currency);
+      render();
+    }
+
+    // ====== Form handling ======
+    $('#currency').addEventListener('change', setCurrencyFromInput);
+
+    $('#itemForm').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      setCurrencyFromInput();
+      const id = $('#itemId').value || uid();
+      const name = $('#name').value.trim();
+      if(!name){ alert('Name is required'); return; }
+      const sku = $('#sku').value.trim();
+      const category = $('#category').value.trim();
+      const qty = Math.max(0, parseInt($('#qty').value || '0', 10));
+      const price = Math.max(0, parseFloat($('#price').value || '0'));
+      const min = Math.max(0, parseInt($('#min').value || '0', 10));
+
+      const exists = items.find(x=>x.id===id);
+      if(exists){
+        Object.assign(exists, { name, sku, category, qty, price, min });
+      } else {
+        // prevent duplicate by name+sku combo
+        const dup = items.find(x=>x.name.toLowerCase()===name.toLowerCase() && x.sku.toLowerCase()===sku.toLowerCase());
+        if(dup && !confirm('Item with same name & SKU exists. Add anyway?')) return;
+        items.push({ id, name, sku, category, qty, price, min });
+      }
+      save();
+      resetForm();
+      render();
+    });
+
+    $('#resetBtn').addEventListener('click', ()=> resetForm());
+    $('#clearAllBtn').addEventListener('click', ()=>{
+      if(items.length===0) return;
+      if(confirm('Delete ALL items? This cannot be undone.')){
+        items = []; save(); render();
+      }
+    });
+
+    function resetForm(){
+      $('#itemForm').reset();
+      $('#itemId').value = '';
+      $('#formTitle').textContent = 'Add Item';
+      $('#saveBtn').textContent = 'Save Item';
+      $('#name').focus();
+      $('#currency').value = currency;
+    }
+
+    function editItem(id){
+      const it = items.find(x=>x.id===id); if(!it) return;
+      $('#itemId').value = it.id;
+      $('#name').value = it.name;
+      $('#sku').value = it.sku;
+      $('#category').value = it.category;
+      $('#qty').value = it.qty;
+      $('#price').value = it.price;
+      $('#min').value = it.min;
+      $('#formTitle').textContent = 'Edit Item';
+      $('#saveBtn').textContent = 'Update Item';
+      window.scrollTo({ top:0, behavior:'smooth' });
+    }
+
+    function deleteItem(id){
+      const it = items.find(x=>x.id===id); if(!it) return;
+      if(confirm(`Delete ${it.name}?`)){
+        items = items.filter(x=>x.id!==id);
+        save(); render();
+      }
+    }
+
+    function adjustQty(id, delta){
+      const it = items.find(x=>x.id===id); if(!it) return;
+      const amtStr = prompt(`${delta>0? 'Stock In' : 'Stock Out'} amount for ${it.name}:`, Math.abs(delta));
+      if(amtStr===null) return;
+      const amt = parseInt(amtStr, 10);
+      if(Number.isNaN(amt) || amt<=0) return alert('Enter a positive whole number');
+      const newQty = it.qty + (delta>0? amt : -amt);
+      it.qty = Math.max(0, newQty);
+      save(); render();
+    }
+
+    // ====== Table / render ======
+    let sortKey = 'name';
+    let sortDir = 1; // 1 asc, -1 desc
+
+    $$('#table thead th').forEach(th=>{
+      th.addEventListener('click', ()=>{
+        const k = th.dataset.key; if(!k) return;
+        if(sortKey===k){ sortDir = -sortDir } else { sortKey = k; sortDir = 1 }
+        render();
+      })
+    })
+
+    $('#search').addEventListener('input', render);
+    $('#filterCat').addEventListener('change', render);
+
+    function render(){
+      // filters
+      const q = $('#search').value?.toLowerCase().trim() || '';
+      const fc = $('#filterCat').value || '';
+
+      // sort
+      const sorted = [...items].sort((a,b)=>{
+        const av = (a[sortKey] ?? '').toString().toLowerCase();
+        const bv = (b[sortKey] ?? '').toString().toLowerCase();
+        if(av<bv) return -1*sortDir;
+        if(av>bv) return 1*sortDir;
+        return 0;
+      });
+
+      const filtered = sorted.filter(it=>{
+        const catOk = !fc || it.category.toLowerCase()===fc.toLowerCase();
+        const txt = (it.name + ' ' + it.sku + ' ' + it.category).toLowerCase();
+        return catOk && (!q || txt.includes(q));
+      });
+
+      // categories
+      const cats = Array.from(new Set(items.map(i=>i.category).filter(Boolean))).sort();
+      const sel = $('#filterCat');
+      const current = sel.value;
+      sel.innerHTML = '<option value="">All categories</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+      sel.value = current || '';
+
+      const tbody = $('#tbody');
+      tbody.innerHTML = '';
+
+      let totalQty = 0; let totalValue = 0;
+
+      if(filtered.length===0){
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No matching items.</td></tr>';
+      } else {
+        for(const it of filtered){
+          totalQty += Number(it.qty||0);
+          totalValue += Number(it.qty||0) * Number(it.price||0);
+
+          const isLow = it.qty <= (it.min ?? 0);
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="font-weight:700">${escapeHtml(it.name)}</td>
+            <td>${escapeHtml(it.sku)}</td>
+            <td><span class="tag">${escapeHtml(it.category||'—')}</span></td>
+            <td><span class="qty-badge ${isLow? 'low':'ok'}">${it.qty}</span></td>
+            <td>${money(it.price)}</td>
+            <td>${money((it.qty||0)*(it.price||0))}</td>
+            <td>
+              <div style="display:flex; gap:6px; flex-wrap:wrap">
+                <button class="btn-ok" title="Stock In">+ In</button>
+                <button class="btn-muted" title="Stock Out">− Out</button>
+                <button class="btn-primary" title="Edit">Edit</button>
+                <button class="btn-danger" title="Delete">Delete</button>
+              </div>
+            </td>`;
+          const [btnIn, btnOut, btnEdit, btnDel] = tr.querySelectorAll('button');
+          btnIn.addEventListener('click', ()=> adjustQty(it.id, +1));
+          btnOut.addEventListener('click', ()=> adjustQty(it.id, -1));
+          btnEdit.addEventListener('click', ()=> editItem(it.id));
+          btnDel.addEventListener('click', ()=> deleteItem(it.id));
+          tbody.appendChild(tr);
+        }
+      }
+
+      $('#totalQty').textContent = totalQty.toString();
+      $('#totalValue').textContent = money(totalValue);
+    }
+
+    function escapeHtml(str){
+      return (str??'').toString().replace(/[&<>"']/g, s=>({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'
+      })[s]);
+    }
+
+    // ====== CSV Export/Import ======
+    $('#exportCsvBtn').addEventListener('click', ()=>{
+      const headers = ['name','sku','category','qty','price','min'];
+      const lines = [headers.join(',')];
+      for(const it of items){
+        const row = headers.map(h=>{
+          const val = (it[h] ?? '').toString();
+          // quote if contains comma
+          return /[,"]/.test(val) ? `"${val.replace(/"/g,'""')}"` : val;
+        });
+        lines.push(row.join(','));
+      }
+      const blob = new Blob([lines.join('\n')], {type:'text/csv'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `inventory-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    $('#importCsvInput').addEventListener('change', (e)=>{
+      const file = e.target.files?.[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = () =>{
+        try{
+          const text = reader.result.toString();
+          const rows = parseCSV(text);
+          const [header, ...data] = rows;
+          const map = header.map(h=>h.trim().toLowerCase());
+          const idx = (k)=> map.indexOf(k);
+          const next = [];
+          for(const r of data){
+            if(r.length===0 || r.every(c=>!c.trim())) continue;
+            next.push({
+              id: uid(),
+              name: r[idx('name')]||'',
+              sku: r[idx('sku')]||'',
+              category: r[idx('category')]||'',
+              qty: Number(r[idx('qty')]||0),
+              price: Number(r[idx('price')]||0),
+              min: Number(r[idx('min')]||0),
+            });
+          }
+          if(!confirm(`Import ${next.length} items? This replaces current list.`)) return;
+          items = next; save(); render();
+          e.target.value = '';
+        }catch(err){ alert('Invalid CSV file.'); console.error(err); }
+      };
+      reader.readAsText(file);
+    });
+
+    function parseCSV(text){
+      const rows = []; let cur = []; let val = ''; let inQ = false;
+      for(let i=0;i<text.length;i++){
+        const ch = text[i];
+        if(inQ){
+          if(ch==='"'){
+            if(text[i+1]==='"'){ val+='"'; i++; } else { inQ=false; }
+          } else { val+=ch; }
+        } else {
+          if(ch==='"'){ inQ=true; }
+          else if(ch===','){ cur.push(val); val=''; }
+          else if(ch==='\n' || ch==='\r'){ if(val!=='' || cur.length){ cur.push(val); rows.push(cur); cur=[]; val=''; } }
+          else { val+=ch; }
+        }
+      }
+      if(val!=='' || cur.length){ cur.push(val); rows.push(cur); }
+      return rows;
+    }
+
+    // ====== Init ======
+    load();
+  </script>
+</body>
+</html>
